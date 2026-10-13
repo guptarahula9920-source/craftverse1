@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Bag — CraftVerse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="shop.css" />
+</head>
+<body data-page="cart">
+  <header id="site-header"></header>
+
+  <main class="page">
+    <ol class="steps"><li class="on">Bag</li><li>Checkout</li><li>Confirmation</li></ol>
+    <h1 class="page-title">Your <span class="grad">Bag</span></h1>
+    <div id="cartWrap"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="store.js"></script>
+  <script>
+    page(async () => {
+      const wrap = $("#cartWrap");
+      const C = cfg();
+
+      const summaryHTML = (t) => `
+        <div class="sum-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div>
+        ${t.discount ? `<div class="sum-row good"><span>Discount (${esc(t.coupon)})</span><span>−${money(t.discount)}</span></div>` : ""}
+        <div class="sum-row"><span>Shipping</span><span>${t.shipping ? money(t.shipping) : "FREE"}</span></div>
+        <div class="sum-row"><span>GST (${Math.round(C.taxRate * 100)}%)</span><span>${money(t.tax)}</span></div>
+        <div class="sum-row total"><span>Total</span><span>${money(t.total)}</span></div>`;
+
+      const lineHTML = (i) => {
+        const p = i.product;
+        return `
+        <div class="cart-item" data-item="${i.id}" data-qty="${i.quantity}">
+          <a href="product.html?id=${esc(p.slug)}">${thumb(p, "sm")}</a>
+          <div class="ci-info">
+            <a href="product.html?id=${esc(p.slug)}"><h3>${esc(p.name)}</h3></a>
+            <small class="muted">${i.size ? "Size: " + esc(i.size) + " · " : ""}${esc(catName(p.category))}${p.stock <= 5 ? ` · <span style="color:var(--accent)">Only ${p.stock} left</span>` : ""}</small>
+            <span class="ci-unit">${money(p.price)} each</span>
+          </div>
+          <div class="qty">${p.maxQty > 1
+            ? `<button data-act="dec" ${i.quantity <= 1 ? "disabled" : ""} aria-label="Decrease">−</button><input value="${i.quantity}" type="number" min="1" max="${p.maxQty}" data-act="set" aria-label="Quantity" /><button data-act="inc" ${i.quantity >= p.maxQty ? "disabled" : ""} aria-label="Increase">+</button>`
+            : `<span class="qty-fixed">Qty 1</span>`}</div>
+          <b class="ci-total">${money(i.lineTotal)}</b>
+          <button class="ci-remove" data-act="remove" aria-label="Remove">✕</button>
+        </div>`;
+      };
+
+      function render() {
+        const cart = App.cart;
+        if (!cart.items.length) {
+          wrap.innerHTML = `<div class="empty"><div class="empty-icon">🛍</div><h3>Your bag is empty</h3>
+            <p class="muted">Discover something handmade and one of a kind.</p><a href="shop.html" class="btn">Start Shopping</a>
+            ${App.wish.size ? `<a href="wishlist.html" class="link">View your wishlist (${App.wish.size}) →</a>` : ""}</div>`;
+          return;
+        }
+        const t = cart.totals;
+        const net = t.subtotal - t.discount;
+        const shipNote = t.shipping
+          ? `<div class="ship-note">Add <b>${money(C.freeShipMin - net)}</b> more for FREE shipping 🚚<div class="bar"><i style="width:${(net / C.freeShipMin) * 100}%"></i></div></div>`
+          : `<div class="ship-note">🎉 You've unlocked <b>FREE shipping</b>!</div>`;
+
+        wrap.innerHTML = `
+          <div class="cart-layout">
+            <div class="cart-list">
+              ${shipNote}
+              ${cart.groups.map((g) => `<section class="vendor-group"><header><span>🏪</span> <a href="brand.html?id=${esc(g.vendor.slug)}">${esc(g.vendor.name)}</a> ${g.vendor.verified ? `<span class="tick">✔</span>` : ""}<span class="muted">${money(g.subtotal)}</span></header>${g.items.map(lineHTML).join("")}</section>`).join("")}
+              <div class="cart-actions"><a href="shop.html" class="link">← Continue shopping</a><button class="link danger" id="clearCart">Clear bag</button></div>
+            </div>
+            <aside class="summary">
+              <h3>Order Summary</h3>
+              ${cart.groups.length > 1 ? `<p class="muted hint">📦 Your order ships from ${cart.groups.length} artisan studios. Each maker is paid directly.</p>` : ""}
+              <form id="couponForm" class="coupon">
+                <input id="couponInput" placeholder="Coupon code" value="${esc(cart.coupon || "")}" aria-label="Coupon code" ${cart.coupon ? "readonly" : ""} />
+                ${cart.coupon ? `<button type="button" class="btn btn-sm btn-ghost" id="removeCoupon">Remove</button>` : `<button class="btn btn-sm">Apply</button>`}
+              </form>
+              ${App.meta.couponHints.length ? `<p class="muted hint">Try ${App.meta.couponHints.map((c) => `<b>${esc(c.code)}</b>`).join(" or ")}</p>` : ""}
+              ${summaryHTML(t)}
+              <a href="checkout.html" class="btn block">Proceed to Checkout →</a>
+              <p class="muted secure">🔒 Secure checkout · UPI · Cards · Netbanking · COD</p>
+            </aside>
+          </div>`;
+
+        $("#couponForm").addEventListener("submit", async (e) => { e.preventDefault(); const code = $("#couponInput").value.trim(); if (code) await Cart.applyCoupon(code); });
+        $("#removeCoupon")?.addEventListener("click", () => Cart.removeCoupon());
+        $("#clearCart").addEventListener("click", () => { if (confirm("Remove all items from your bag?")) Cart.clear(); });
+      }
+
+      wrap.addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-act]"); if (!b || b.tagName === "INPUT") return;
+        const row = b.closest(".cart-item"), id = row.dataset.item, qty = +row.dataset.qty;
+        $$("button", row).forEach((x) => (x.disabled = true));
+        const act = { inc: () => Cart.setQty(id, qty + 1), dec: () => Cart.setQty(id, qty - 1), remove: () => Cart.remove(id) }[b.dataset.act];
+        if (!(await act())) render(); // re-enable controls if the request failed
+      });
+      wrap.addEventListener("change", (e) => {
+        if (e.target.dataset.act === "set") Cart.setQty(e.target.closest(".cart-item").dataset.item, Math.max(1, +e.target.value || 1));
+      });
+      document.addEventListener("cart:change", render);
+      await Cart.load(); // refresh stock/price warnings
+    });
+  </script>
+</body>
+</html>

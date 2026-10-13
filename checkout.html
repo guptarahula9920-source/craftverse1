@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout — CraftVerse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="shop.css" />
+</head>
+<body data-page="cart">
+  <header id="site-header"></header>
+
+  <main class="page">
+    <ol class="steps"><li class="done"><a href="cart.html">Bag</a></li><li class="on">Checkout</li><li>Confirmation</li></ol>
+    <h1 class="page-title">Secure <span class="grad">Checkout</span></h1>
+    <p class="muted" id="authHint"></p>
+
+    <div class="cart-layout" id="layout">
+      <form id="checkout" class="co-form" novalidate>
+        <fieldset class="panel">
+          <legend><span class="num">1</span> Contact</legend>
+          <div class="row2">
+            <div class="field"><label for="fullName">Full Name *</label><input id="fullName" autocomplete="name" /><small class="err"></small></div>
+            <div class="field"><label for="phone">Mobile *</label><input id="phone" type="tel" autocomplete="tel" placeholder="98765 43210" /><small class="err"></small></div>
+          </div>
+          <div class="field"><label for="email">Email (for invoice & tracking) *</label><input id="email" type="email" autocomplete="email" placeholder="you@email.com" /><small class="err"></small></div>
+        </fieldset>
+
+        <fieldset class="panel">
+          <legend><span class="num">2</span> Shipping Address</legend>
+          <div class="field"><label for="address">Address *</label><input id="address" autocomplete="street-address" placeholder="House no, street, area, landmark" /><small class="err"></small></div>
+          <div class="row3">
+            <div class="field"><label for="city">City *</label><input id="city" autocomplete="address-level2" /><small class="err"></small></div>
+            <div class="field"><label for="state">State *</label><input id="state" autocomplete="address-level1" /><small class="err"></small></div>
+            <div class="field"><label for="zip">PIN Code *</label><input id="zip" inputmode="numeric" autocomplete="postal-code" placeholder="110001" maxlength="10" /><small class="err"></small></div>
+          </div>
+          <div class="field"><label for="country">Country</label>
+            <select id="country"><option>India</option><option>United States</option><option>United Kingdom</option><option>Canada</option><option>Australia</option><option>UAE</option><option>Singapore</option></select></div>
+          <label class="check"><input type="checkbox" id="gift" /> This is a gift (hide prices & add a handwritten note)</label>
+          <div class="field" id="giftNoteWrap" hidden><label for="giftNote">Gift message</label><textarea id="giftNote" maxlength="200" placeholder="Happy Diwali! With love…"></textarea><small class="err"></small></div>
+        </fieldset>
+
+        <fieldset class="panel">
+          <legend><span class="num">3</span> Payment</legend>
+          <div class="pay-tabs" role="radiogroup" aria-label="Payment method">
+            <button type="button" class="pay-tab active" data-pay="upi">📱 UPI</button>
+            <button type="button" class="pay-tab" data-pay="card">💳 Card</button>
+            <button type="button" class="pay-tab" data-pay="netbanking">🏦 Netbanking</button>
+            <button type="button" class="pay-tab" data-pay="cod">💵 COD</button>
+          </div>
+          <p class="muted hint" id="payHint"></p>
+          <label class="check"><input type="checkbox" id="terms" /> I agree to the <a href="policies.html#terms" class="link" target="_blank">Terms</a>, <a href="policies.html#shipping" class="link" target="_blank">Shipping</a> and <a href="policies.html#refund" class="link" target="_blank">Refund</a> policies.</label>
+          <small class="err" id="termsErr"></small>
+        </fieldset>
+
+        <button class="btn block big" id="placeBtn" type="submit">Place Order</button>
+      </form>
+
+      <aside class="summary" id="summary"></aside>
+    </div>
+  </main>
+
+  <!-- Test-mode payment gateway (used when Razorpay keys aren't configured) -->
+  <div class="modal" id="mockGateway" hidden>
+    <div class="panel mock-pay" role="dialog" aria-modal="true" aria-labelledby="mockTitle">
+      <p class="chip">🧪 TEST MODE</p>
+      <h2 id="mockTitle" style="font-family:var(--serif)">CraftVerse Pay</h2>
+      <p class="amount" id="mockAmount"></p>
+      <p class="muted" id="mockMethod"></p>
+      <p class="muted hint">No real money moves. Add Razorpay keys to <code>server/.env</code> to accept real payments.</p>
+      <button class="btn block" id="mockSuccess">✔ Simulate successful payment</button>
+      <button class="btn btn-ghost block" id="mockFail">✕ Simulate failed payment</button>
+    </div>
+  </div>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="store.js"></script>
+  <script>
+    page(async () => {
+      if (!App.cart.items.length) return location.replace("cart.html");
+      const C = cfg();
+      const user = App.user;
+      $("#authHint").innerHTML = user ? `Signed in as <b>${esc(user.email)}</b>` : `Have an account? <a class="link" href="login.html?next=checkout.html">Log in</a> for faster checkout and order tracking, or continue as a guest.`;
+
+      // Prefill: account details + last used address (address cached on this device only)
+      const last = JSON.parse(localStorage.getItem("cv_address") || "{}");
+      if (user) { last.fullName ||= user.name; last.email ||= user.email; last.phone ||= user.phone || ""; }
+      ["fullName", "email", "phone", "address", "city", "state", "zip", "country"].forEach((k) => { if (last[k]) $("#" + k).value = last[k]; });
+
+      let payMethod = "upi";
+      const hints = {
+        upi: "Pay with any UPI app (GPay, PhonePe, Paytm). You'll confirm in a secure payment window.",
+        card: "Visa, Mastercard, RuPay & Amex. Card details are entered in the secure payment window and never touch our servers.",
+        netbanking: "All major Indian banks. You'll be redirected to your bank in a secure payment window.",
+        cod: `Pay in cash or UPI on delivery. A ${money(C.codFee)} handling fee applies. India only.`,
+      };
+
+      function renderSummary() {
+        const { totals: t, groups } = App.cart;
+        $("#summary").innerHTML = `
+          <h3>Order Summary</h3>
+          <div class="mini-list">${groups.map((g) => `
+            <small class="muted">🏪 ${esc(g.vendor.name)}</small>
+            ${g.items.map((i) => `<div class="mini">${thumb(i.product, "xs")}<div><b>${esc(i.product.name)}</b><small class="muted">${i.size ? "Size " + esc(i.size) + " · " : ""}Qty ${i.quantity}</small></div><span>${money(i.lineTotal)}</span></div>`).join("")}`).join("")}
+          </div>
+          <div class="sum-row"><span>Subtotal</span><span>${money(t.subtotal)}</span></div>
+          ${t.discount ? `<div class="sum-row good"><span>Discount (${esc(t.coupon)})</span><span>−${money(t.discount)}</span></div>` : ""}
+          <div class="sum-row"><span>Shipping</span><span>${t.shipping ? money(t.shipping) : "FREE"}</span></div>
+          <div class="sum-row"><span>GST (${Math.round(C.taxRate * 100)}%)</span><span>${money(t.tax)}</span></div>
+          ${t.codFee ? `<div class="sum-row"><span>COD fee</span><span>${money(t.codFee)}</span></div>` : ""}
+          <div class="sum-row total"><span>Total</span><span>${money(t.total)}</span></div>
+          <a href="cart.html" class="link">← Edit bag</a>`;
+        $("#placeBtn").textContent = payMethod === "cod" ? `Place COD Order · ${money(t.total)}` : `Pay ${money(t.total)}`;
+        $("#payHint").textContent = hints[payMethod];
+      }
+      document.addEventListener("cart:change", renderSummary);
+      await Cart.load(payMethod);
+
+      $$(".pay-tab").forEach((tab) => tab.addEventListener("click", () => {
+        payMethod = tab.dataset.pay;
+        $$(".pay-tab").forEach((t) => t.classList.toggle("active", t === tab));
+        Cart.load(payMethod);
+      }));
+      $("#gift").addEventListener("change", (e) => ($("#giftNoteWrap").hidden = !e.target.checked));
+
+      // Client-side checks for instant feedback (the server re-validates everything)
+      const isIndia = () => $("#country").value === "India";
+      const rules = {
+        fullName: (v) => v.length >= 2 || "Enter your full name",
+        email: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v) || "Enter a valid email",
+        phone: (v) => {
+          let d = v.replace(/\D/g, "");
+          if (!isIndia()) return (d.length >= 7 && d.length <= 15) || "Enter a valid phone number";
+          if (d.length === 12 && d.startsWith("91")) d = d.slice(2); else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+          return /^[6-9]\d{9}$/.test(d) || "Enter a valid 10-digit mobile number";
+        },
+        address: (v) => v.length >= 5 || "Enter your full address (house no, street, area)",
+        city: (v) => v.length >= 2 || "Enter your city",
+        state: (v) => v.length >= 2 || "Enter your state",
+        zip: (v) => (isIndia() ? /^[1-9]\d{5}$/.test(v.replace(/\s/g, "")) : /^[A-Za-z0-9 -]{3,10}$/.test(v)) || "Enter a valid 6-digit PIN code",
+      };
+      function check(id) {
+        const el = $("#" + id), r = rules[id](el.value.trim());
+        el.classList.toggle("invalid", r !== true);
+        el.parentElement.querySelector(".err").textContent = r === true ? "" : r;
+        return r === true;
+      }
+      Object.keys(rules).forEach((id) => $("#" + id).addEventListener("blur", () => { if ($("#" + id).value) check(id); }));
+
+      const btn = $("#placeBtn");
+      const busy = (on, label) => { btn.disabled = on; if (on) btn.innerHTML = `<span class="spinner"></span> ${label}`; else renderSummary(); };
+      const done = (number) => location.replace("success.html?order=" + encodeURIComponent(number));
+
+      $("#checkout").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const bad = Object.keys(rules).filter((id) => !check(id));
+        const termsOk = $("#terms").checked;
+        $("#termsErr").textContent = termsOk ? "" : "Please accept the policies to continue";
+        if (bad.length) return reportInvalid(bad.map((id) => $("#" + id)));
+        if (!termsOk) { $("#terms").scrollIntoView({ behavior: "smooth", block: "center" }); return toast("Please accept the policies to continue", true); }
+
+        const v = (id) => $("#" + id).value.trim();
+        const body = {
+          contact: { name: v("fullName"), email: v("email"), phone: v("phone") },
+          shipping: { address: v("address"), city: v("city"), state: v("state"), zip: v("zip"), country: v("country") },
+          paymentMethod: payMethod, giftNote: $("#gift").checked ? v("giftNote") : null, acceptTerms: true,
+        };
+        localStorage.setItem("cv_address", JSON.stringify({ fullName: body.contact.name, email: body.contact.email, phone: body.contact.phone, ...body.shipping }));
+
+        busy(true, payMethod === "cod" ? "Placing order…" : "Starting secure payment…");
+        let intent;
+        try {
+          intent = await api("/checkout/create-payment-intent", { method: "POST", body });
+        } catch (err) {
+          busy(false);
+          if (err.status === 422) { showFieldErrors(err.details, { name: "fullName" }) || toast(err.message, true); return; }
+          if (err.status === 409) { toast(err.message + (err.details ? " " + err.details.join(". ") : ""), true); setTimeout(() => (location.href = "cart.html"), 2200); return; }
+          return toast(err.message, true);
+        }
+
+        if (intent.mode === "cod") return done(intent.orderNumber);
+        if (intent.mode === "mock") return openMockGateway(intent);
+        return openRazorpay(intent);
+      });
+
+      // ---------- Test-mode gateway ----------
+      function openMockGateway(intent) {
+        $("#mockAmount").textContent = money(intent.amount);
+        $("#mockMethod").textContent = `Paying with ${$(".pay-tab.active").textContent.trim()} · Order ${intent.orderNumber}`;
+        $("#mockGateway").hidden = false;
+        $("#mockSuccess").focus();
+        const pay = async (success) => {
+          $$("#mockGateway button").forEach((b) => (b.disabled = true));
+          try {
+            await api("/checkout/mock-pay", { method: "POST", body: { orderId: intent.orderId, success } });
+            done(intent.orderNumber);
+          } catch (err) {
+            $("#mockGateway").hidden = true;
+            $$("#mockGateway button").forEach((b) => (b.disabled = false));
+            busy(false);
+            toast(err.message, true);
+          }
+        };
+        $("#mockSuccess").onclick = () => pay(true);
+        $("#mockFail").onclick = () => pay(false);
+      }
+
+      // ---------- Razorpay Checkout ----------
+      function loadRazorpay() {
+        return window.Razorpay ? Promise.resolve() : new Promise((res, rej) => {
+          const s = document.createElement("script");
+          s.src = "https://checkout.razorpay.com/v1/checkout.js";
+          s.onload = res; s.onerror = () => rej(new Error("Couldn't load the payment window. Check your connection."));
+          document.head.appendChild(s);
+        });
+      }
+      async function openRazorpay(intent) {
+        const cancel = () => api("/checkout/cancel", { method: "POST", body: { orderId: intent.orderId } }).catch(() => {});
+        try { await loadRazorpay(); } catch (err) { cancel(); busy(false); return toast(err.message, true); }
+        const rz = intent.razorpay;
+        const rzp = new Razorpay({
+          key: rz.keyId, amount: rz.amount, currency: rz.currency, name: rz.name, order_id: rz.orderId,
+          description: `Order ${intent.orderNumber}`,
+          prefill: { ...rz.prefill, method: payMethod },
+          theme: { color: "#c2562f" },
+          handler: async (resp) => {
+            busy(true, "Confirming payment…");
+            try {
+              await api("/checkout/verify", { method: "POST", body: { orderId: intent.orderId, ...resp } });
+            } catch (err) {
+              // The webhook will still confirm a genuine payment; send the customer to the order page either way
+              console.warn(err);
+            }
+            done(intent.orderNumber);
+          },
+          modal: { ondismiss: () => { cancel(); busy(false); toast("Payment cancelled. Your bag is saved.", true); } },
+        });
+        rzp.on("payment.failed", (r) => toast(r.error?.description || "Payment failed, please try again", true));
+        rzp.open();
+      }
+    });
+  </script>
+</body>
+</html>

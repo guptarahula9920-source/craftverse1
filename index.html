@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CraftVerse — Handmade India, Direct from Artisans</title>
+  <meta name="description" content="CraftVerse is a multi-vendor marketplace and directory for India's artisans and craft brands: paintings, handloom, pottery, jewelry and more." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="shop.css" />
+</head>
+<body data-page="home">
+  <header id="site-header"></header>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-text">
+      <p class="tag">✿ <span id="brandCount">0</span> verified artisan brands across India</p>
+      <h1>Handmade India,<br /><span class="grad">straight from the maker.</span></h1>
+      <p class="sub">Discover paintings, handloom, pottery and jewelry from India's master artisans. Every purchase goes directly to the people who make it.</p>
+      <form class="hero-search" action="shop.html">
+        <input type="search" name="q" placeholder="Try “Madhubani”, “jhumka” or “mugs”" aria-label="Search the marketplace" />
+        <button class="btn">Search</button>
+      </form>
+      <div class="cta">
+        <a href="shop.html" class="btn btn-dark">Shop all crafts</a>
+        <a href="brands.html" class="btn btn-ghost">Browse brands →</a>
+      </div>
+      <div class="stats">
+        <div><b data-count="1200">0</b><span>Artisans supported</span></div>
+        <div><b data-count="18">0</b><span>States & crafts</span></div>
+        <div><b data-count="85">0</b><span>% goes to the maker</span></div>
+      </div>
+    </div>
+    <div class="hero-art" aria-hidden="true">
+      <div class="tile t1" style="--c1:#f6c27a;--c2:#c0612e"><img src="assets/madhubani-hero.png" alt="Madhubani folk dance" /><small>Madhubani · Bihar</small></div>
+      <div class="tile t2" style="--c1:#c9b8e6;--c2:#4e3d70"><img src="assets/jaipur-silver.png" alt="" /><small>Jaipur silver</small></div>
+      <div class="tile t3" style="--c1:#7aa5d6;--c2:#2c4f78"><img src="assets/khurja-pottery.png" alt="" /><small>Khurja pottery</small></div>
+      <div class="tile t4" style="--c1:#e68a8a;--c2:#8c2b3a"><img src="assets/kutch-leatherwork.png" alt="" /><small>Kutch embroidery</small></div>
+    </div>
+  </section>
+
+  <!-- CATEGORIES -->
+  <section class="section">
+    <div class="sec-head center" style="justify-content:center"><div><h2 class="title">Shop by <span class="grad">craft</span></h2><p>Centuries of tradition, sorted for you.</p></div></div>
+    <div class="cats" id="cats"></div>
+  </section>
+
+  <!-- FEATURED BRANDS -->
+  <section class="section alt">
+    <div class="sec-head">
+      <div><h2 class="title">Featured <span class="grad">artisans</span></h2><p>Meet the makers behind the craft.</p></div>
+      <a href="brands.html" class="btn btn-ghost btn-sm">All brands →</a>
+    </div>
+    <div class="vgrid" id="featuredBrands"></div>
+  </section>
+
+  <!-- TRENDING -->
+  <section class="section">
+    <div class="sec-head">
+      <div><h2 class="title">Trending <span class="grad">handmade</span></h2><p>Loved by our community this week.</p></div>
+      <a href="shop.html" class="btn btn-ghost btn-sm">Shop all →</a>
+    </div>
+    <div class="pgrid" id="featured"></div>
+  </section>
+
+  <!-- WHY -->
+  <section class="section alt">
+    <div class="sec-head center" style="justify-content:center"><div><h2 class="title">Why <span class="grad">CraftVerse?</span></h2></div></div>
+    <div class="grid">
+      <article class="card reveal"><div class="icon">🤝</div><h3>Direct from artisans</h3><p>No middlemen. Payments are split at checkout, so makers get paid directly.</p></article>
+      <article class="card reveal"><div class="icon">✔️</div><h3>Verified authenticity</h3><p>Every brand is KYC-verified, and GI-tagged crafts are checked at source.</p></article>
+      <article class="card reveal"><div class="icon">🚚</div><h3>Pan-India shipping</h3><p>Plastic-free packaging, with free delivery on orders over ₹1,499.</p></article>
+      <article class="card reveal"><div class="icon">↩️</div><h3>Easy returns</h3><p>7-day returns on eligible items, plus a refund guarantee if anything arrives damaged.</p></article>
+    </div>
+  </section>
+
+  <!-- WORKSHOPS -->
+  <section class="section">
+    <div class="sec-head">
+      <div><h2 class="title">Upcoming <span class="grad">workshops</span></h2><p>Learn a craft from the masters, online or in person.</p></div>
+      <a href="workshops.html" class="btn btn-ghost btn-sm">All workshops →</a>
+    </div>
+    <div class="wgrid" id="workshops"></div>
+  </section>
+
+  <!-- STORIES -->
+  <section class="section alt">
+    <div class="sec-head"><div><h2 class="title">Community <span class="grad">stories</span></h2><p>The people, places and traditions behind every piece.</p></div></div>
+    <div class="stories" id="stories"></div>
+  </section>
+
+  <!-- SELL CTA -->
+  <section class="section" style="padding-bottom:0">
+    <div class="sell-cta" style="margin:0 0 80px">
+      <div>
+        <h2>Are you an artisan or craft brand?</h2>
+        <p>Open your free storefront on CraftVerse and reach craft lovers across India and around the world.</p>
+        <a href="sell.html" class="btn">Start selling →</a>
+      </div>
+      <ul>
+        <li>✓ Your own storefront & brand page</li>
+        <li>✓ Simple dashboard for products & orders</li>
+        <li>✓ Automatic split payouts (just 10% commission)</li>
+        <li>✓ Host paid workshops</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- NEWSLETTER -->
+  <section class="section join alt">
+    <h2 class="title">Get the <span class="grad">Craft Letter</span></h2>
+    <p class="muted">New artisans, festive collections and workshop invites, once a month.</p>
+    <form id="joinForm">
+      <input type="email" required placeholder="you@email.com" aria-label="Email" />
+      <button class="btn">Subscribe</button>
+    </form>
+  </section>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="store.js"></script>
+  <script src="script.js"></script>
+</body>
+</html>

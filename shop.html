@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shop Handmade — CraftVerse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="shop.css" />
+</head>
+<body data-page="shop">
+  <header id="site-header"></header>
+
+  <main class="page">
+    <nav class="crumbs"><a href="index.html">Home</a> / <span>Shop</span></nav>
+    <div class="page-head">
+      <h1 class="page-title">Shop <span class="grad">handmade</span></h1>
+      <p class="muted">Authentic crafts from verified artisans. Filter by craft, brand, region or price.</p>
+    </div>
+
+    <div class="shop-bar">
+      <div class="tabs" id="catTabs"></div>
+      <div class="shop-controls">
+        <button class="btn btn-ghost btn-sm filter-toggle" id="filterToggle">⚙ Filters</button>
+        <input type="search" id="search" placeholder="Search products, brands…" aria-label="Search products" />
+        <select id="sort" aria-label="Sort">
+          <option value="featured">Featured</option>
+          <option value="price-asc">Price: Low → High</option>
+          <option value="price-desc">Price: High → Low</option>
+          <option value="rating">Top Rated</option>
+          <option value="popular">Most Reviewed</option>
+          <option value="newest">Newest</option>
+          <option value="name">Name A–Z</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="shop-layout">
+      <aside class="filters" id="filters">
+        <div><h4>Price (₹)</h4>
+          <div class="price-inputs"><input type="number" id="pmin" placeholder="Min" min="0" /> – <input type="number" id="pmax" placeholder="Max" min="0" /></div></div>
+        <div><h4>Brand</h4><div id="brandFilter"></div></div>
+        <div><h4>Region</h4><div id="stateFilter"></div></div>
+        <div><h4>Rating</h4>
+          <select id="minRating"><option value="0">Any rating</option><option value="4.5">4.5 ★ & up</option><option value="4.7">4.7 ★ & up</option><option value="4.9">4.9 ★ & up</option></select></div>
+        <div>
+          <label class="opt-row"><input type="checkbox" id="inStock" /> In stock only</label>
+          <label class="opt-row"><input type="checkbox" id="onSale" /> On sale</label>
+          <label class="opt-row"><input type="checkbox" id="verifiedOnly" /> Verified brands only</label>
+        </div>
+        <button class="link" id="resetFilters" type="button">Reset all filters</button>
+      </aside>
+
+      <div>
+        <p class="muted result-count" id="resultCount">Loading…</p>
+        <div class="pgrid" id="grid"></div>
+        <div class="empty" id="empty" hidden>
+          <div class="empty-icon">🔍</div>
+          <h3>No crafts found</h3>
+          <p class="muted">Try another search or clear some filters.</p>
+        </div>
+        <div class="center" style="margin-top:28px"><button class="btn btn-ghost" id="more" hidden>Load more</button></div>
+      </div>
+    </div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="store.js"></script>
+  <script>
+    page(async () => {
+      const params = new URLSearchParams(location.search);
+      const state = { cat: params.get("cat") || "all", q: params.get("q") || "", sort: "featured", brands: params.getAll("brand"), states: [], min: "", max: "", rating: 0, inStock: false, onSale: false, verified: false, page: 1 };
+      const cats = [{ id: "all", name: "All", icon: "✨" }, ...App.meta.categories];
+      if (!cats.some((c) => c.id === state.cat)) state.cat = "all";
+
+      const tabs = $("#catTabs");
+      tabs.innerHTML = cats.map((c) => `<button class="tab" data-cat="${c.id}">${c.icon} ${esc(c.name)}</button>`).join("");
+      $("#search").value = state.q;
+
+      const vendors = (await api("/vendors")).items.filter((v) => v.productCount);
+      $("#brandFilter").innerHTML = vendors.map((v) => `<label class="opt-row"><input type="checkbox" value="${esc(v.slug)}" ${state.brands.includes(v.slug) ? "checked" : ""} /> ${esc(v.name)}</label>`).join("");
+      $("#stateFilter").innerHTML = [...new Set(vendors.map((v) => v.state))].sort().map((s) => `<label class="opt-row"><input type="checkbox" value="${esc(s)}" /> ${esc(s)}</label>`).join("");
+
+      let seq = 0;
+      async function render(append = false) {
+        $$(".tab", tabs).forEach((t) => t.classList.toggle("active", t.dataset.cat === state.cat));
+        if (!append) state.page = 1;
+        const mySeq = ++seq;
+        const res = await api("/products" + qs({
+          category: state.cat, q: state.q.trim(), sort: state.sort, vendor: state.brands, state: state.states, min: state.min, max: state.max,
+          rating: state.rating || "", inStock: state.inStock && 1, onSale: state.onSale && 1, verified: state.verified && 1, page: state.page, limit: 24,
+        }));
+        if (mySeq !== seq) return; // a newer request superseded this one
+        const html = res.items.map(productCard).join("");
+        append ? $("#grid").insertAdjacentHTML("beforeend", html) : ($("#grid").innerHTML = html);
+        $("#empty").hidden = res.total > 0;
+        $("#more").hidden = res.page >= res.pages;
+        $("#resultCount").textContent = `${res.total} handmade item${res.total === 1 ? "" : "s"}`;
+
+        const url = new URL(location);
+        state.cat === "all" ? url.searchParams.delete("cat") : url.searchParams.set("cat", state.cat);
+        state.q ? url.searchParams.set("q", state.q) : url.searchParams.delete("q");
+        url.searchParams.delete("brand"); state.brands.forEach((b) => url.searchParams.append("brand", b));
+        history.replaceState(null, "", url);
+      }
+      const renderSoon = debounce(() => render(), 250);
+
+      const checked = (sel) => $$(sel + " input:checked").map((i) => i.value);
+      tabs.addEventListener("click", (e) => { const t = e.target.closest(".tab"); if (t) { state.cat = t.dataset.cat; render(); } });
+      $("#search").addEventListener("input", (e) => { state.q = e.target.value; renderSoon(); });
+      $("#sort").addEventListener("change", (e) => { state.sort = e.target.value; render(); });
+      $("#filters").addEventListener("input", () => {
+        Object.assign(state, {
+          brands: checked("#brandFilter"), states: checked("#stateFilter"), min: $("#pmin").value, max: $("#pmax").value,
+          rating: +$("#minRating").value, inStock: $("#inStock").checked, onSale: $("#onSale").checked, verified: $("#verifiedOnly").checked,
+        });
+        renderSoon();
+      });
+      $("#resetFilters").addEventListener("click", () => {
+        $$("#filters input").forEach((i) => (i.type === "checkbox" ? (i.checked = false) : (i.value = "")));
+        $("#minRating").value = "0";
+        $("#filters").dispatchEvent(new Event("input"));
+      });
+      $("#filterToggle").addEventListener("click", () => $("#filters").classList.toggle("open"));
+      $("#more").addEventListener("click", () => { state.page++; render(true); });
+      await render();
+    });
+  </script>
+</body>
+</html>

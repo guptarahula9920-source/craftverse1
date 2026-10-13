@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order Confirmed — CraftVerse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="shop.css" />
+</head>
+<body data-page="orders">
+  <header id="site-header"></header>
+
+  <main class="page" id="main"></main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="store.js"></script>
+  <script src="order-view.js"></script>
+  <script>
+    page(async () => {
+      const main = $("#main");
+      const number = new URLSearchParams(location.search).get("order") || "";
+      let order;
+      try { order = (await api("/orders/" + encodeURIComponent(number))).order; }
+      catch (e) {
+        if (e.status !== 404) throw e;
+        main.innerHTML = `<div class="empty"><div class="empty-icon">📭</div><h3>Order not found</h3><a href="orders.html" class="btn">View My Orders</a></div>`;
+        return;
+      }
+      updateBadges();
+      const pending = order.paymentStatus === "pending";
+      main.innerHTML = `
+        <ol class="steps"><li class="done">Bag</li><li class="done">Checkout</li><li class="on">Confirmation</li></ol>
+        <section class="success">
+          <div class="check-anim">${pending ? "⏳" : "✓"}</div>
+          <h1 class="page-title">${pending ? "Confirming your payment…" : `Thank you, ${esc(order.customer.name.split(" ")[0])}!`}</h1>
+          <p class="muted">${pending ? "We're waiting for the payment gateway to confirm. This page will update automatically."
+            : `Your order is confirmed and ${order.split.length > 1 ? `all ${order.split.length} artisans have` : "the artisan has"} been notified. An invoice has been sent to <b>${esc(order.customer.email)}</b>.`}</p>
+          <p class="order-id">Order ID: <b>${esc(order.number)}</b> <button class="link" id="copyId">Copy</button></p>
+        </section>
+        ${orderDetail(order)}
+        <div class="success-actions">
+          <a href="shop.html" class="btn">Continue Shopping</a>
+          <a href="orders.html" class="btn btn-ghost">View All Orders</a>
+          <button class="btn btn-ghost" onclick="print()">🖨 Print Invoice</button>
+        </div>`;
+      $("#copyId").addEventListener("click", () => { navigator.clipboard?.writeText(order.number); toast("Order ID copied"); });
+      if (pending) setTimeout(() => location.reload(), 4000);
+      // the cart was cleared server-side after payment
+      Cart.load();
+    });
+  </script>
+</body>
+</html>

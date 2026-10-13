@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Orders — CraftVerse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="shop.css" />
+</head>
+<body data-page="orders">
+  <header id="site-header"></header>
+
+  <main class="page">
+    <nav class="crumbs"><a href="index.html">Home</a> / <span>My Account</span></nav>
+    <div class="dash-head">
+      <h1 class="page-title">My <span class="grad">Orders</span></h1>
+      <div id="acct"></div>
+    </div>
+    <form class="track" id="track">
+      <input id="trackId" placeholder="Order ID (e.g. CV-AB12CD34)" aria-label="Order ID" />
+      <input id="trackEmail" type="email" placeholder="Email used at checkout" aria-label="Email" />
+      <button class="btn btn-sm">Track</button>
+    </form>
+    <div id="list"></div>
+    <div id="bookings"></div>
+  </main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="store.js"></script>
+  <script src="order-view.js"></script>
+  <script>
+    page(async () => {
+      const user = App.user;
+      $("#acct").innerHTML = user
+        ? `<span class="muted">Signed in as <b>${esc(user.name)}</b></span> <button class="btn btn-ghost btn-sm" id="logout">Log out</button>`
+        : `<a href="login.html?next=orders.html" class="btn btn-ghost btn-sm">Log in to see all your orders</a>`;
+      $("#logout")?.addEventListener("click", async () => { await Auth.logout(); location.reload(); });
+      if (user) $("#trackEmail").value = user.email;
+
+      const card = (o) => `
+        <details class="order-card">
+          <summary>
+            <div><small class="muted">Order</small><b>${esc(o.number)}</b></div>
+            <div><small class="muted">Date</small><span>${fmtDate(o.date)}</span></div>
+            <div><small class="muted">Items</small><span>${o.itemCount}</span></div>
+            <div><small class="muted">Total</small><b>${money(o.totals.total)}</b></div>
+            <span class="status ${statusClass(o.status)}">${esc(o.status)}</span>
+          </summary>
+          ${orderDetail(o)}
+          <div class="oc-actions"><button class="btn btn-sm btn-ghost" data-reorder="${esc(o.number)}">↻ Buy Again</button></div>
+        </details>`;
+      const empty = (title, text) => `<div class="empty"><div class="empty-icon">📦</div><h3>${title}</h3><p class="muted">${text}</p><a href="shop.html" class="btn">Browse the Marketplace</a></div>`;
+
+      async function renderMine() {
+        if (!user) { $("#list").innerHTML = empty("Track an order", "Enter your order ID and email above, or log in to see your order history."); return; }
+        const { items } = await api("/orders");
+        $("#list").innerHTML = items.length ? items.map(card).join("") : empty("No orders yet", "Your handmade finds will appear here.");
+        const b = await api("/me/bookings");
+        $("#bookings").innerHTML = b.items.length ? `<h2 class="sec-title">My workshop bookings</h2><div class="wgrid">${b.items.map(workshopCard).join("")}</div>` : "";
+      }
+
+      $("#track").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const id = $("#trackId").value.trim().toUpperCase();
+        if (!id) return renderMine();
+        try {
+          const { order } = await api(`/orders/${encodeURIComponent(id)}` + qs({ email: $("#trackEmail").value.trim() }));
+          $("#list").innerHTML = card(order);
+          $("#list details").open = true;
+        } catch (err) {
+          $("#list").innerHTML = empty("No matching order", esc(err.message));
+        }
+      });
+      $("#list").addEventListener("click", async (e) => {
+        const b = e.target.closest("[data-reorder]"); if (!b) return;
+        try {
+          const r = await api(`/orders/${encodeURIComponent(b.dataset.reorder)}/reorder`, { method: "POST" });
+          toast(r.skipped ? `${r.added} item(s) added. ${r.skipped} are no longer available` : "Added to your bag");
+          setTimeout(() => (location.href = "cart.html"), 600);
+        } catch (err) { toast(err.message, true); }
+      });
+      await renderMine();
+    });
+  </script>
+</body>
+</html>

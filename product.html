@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product — CraftVerse</title>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500;1,9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="shop.css" />
+</head>
+<body data-page="shop">
+  <header id="site-header"></header>
+
+  <main class="page" id="main"></main>
+
+  <footer id="site-footer" class="site-footer"></footer>
+
+  <script src="store.js"></script>
+  <script>
+    page(async () => {
+      const main = $("#main");
+      let data;
+      try { data = await api("/products/" + encodeURIComponent(new URLSearchParams(location.search).get("id") || "")); }
+      catch (e) {
+        if (e.status !== 404) throw e;
+        main.innerHTML = `<div class="empty"><div class="empty-icon">🧺</div><h3>Product not found</h3>
+          <p class="muted">This item may have been removed by the seller.</p><a href="shop.html" class="btn">Back to Shop</a></div>`;
+        return;
+      }
+      const { product: p, moreFromVendor: more, related } = data;
+      const v = p.vendor;
+      const out = p.stock <= 0;
+      const wished = Wishlist.has(p.id);
+      const C = cfg();
+      document.title = `${p.name} — CraftVerse`;
+
+      main.innerHTML = `
+        <nav class="crumbs"><a href="index.html">Home</a> / <a href="shop.html">Shop</a> / <a href="shop.html?cat=${p.category}">${esc(catName(p.category))}</a> / <span>${esc(p.name)}</span></nav>
+        ${p.status !== "active" ? `<p class="ship-note" style="margin-bottom:16px">👁 Preview: this product is <b>${esc(p.status)}</b> and not visible to customers.</p>` : ""}
+        <section class="pdetail">
+          <div class="pdetail-img">${thumb(p, "lg")}${out ? `<span class="pbadge sold">SOLD OUT</span>` : p.badge ? `<span class="pbadge">${esc(p.badge)}</span>` : ""}
+            <button class="wish ${wished ? "on" : ""}" data-wish="${p.id}" aria-label="Wishlist">${wished ? "♥" : "♡"}</button></div>
+          <div class="pdetail-info">
+            <a href="brand.html?id=${esc(v.slug)}" class="pvendor">${esc(v.name)} ${v.verified ? "✔" : ""}</a>
+            <h1>${esc(p.name)}</h1>
+            <div class="rating">${stars(p.rating)} <b>${p.rating || "New"}</b> <small class="muted">(${p.reviews || 0} reviews)</small></div>
+            <div class="price-row big"><b>${money(p.price)}</b>${p.oldPrice ? `<s>${money(p.oldPrice)}</s><span class="save">SAVE ${Math.round((1 - p.price / p.oldPrice) * 100)}%</span>` : ""}</div>
+            <small class="muted">GST invoice available · ${Math.round(C.taxRate * 100)}% GST added at checkout</small>
+            <p class="desc">${esc(p.desc)}</p>
+            ${p.materials ? `<p class="spec muted"><b>Materials:</b> ${esc(p.materials)}</p>` : ""}
+            <ul class="feat">${(p.features || []).map((f) => `<li>${esc(f)}</li>`).join("")}</ul>
+
+            ${p.sizes ? `<div class="opt"><label>Size</label><div class="sizes" id="sizes">${p.sizes.map((s) => `<button type="button" class="size" data-size="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>` : ""}
+
+            <p class="stock-note ${p.stock > 0 && p.stock <= 5 ? "low" : ""}">${out ? "Currently out of stock" : p.stock <= 5 ? `Only ${p.stock} left: handmade in small batches` : "✓ In stock, ready to ship"}</p>
+            <div class="buy-row">
+              ${!out && p.maxQty > 1 ? `<div class="qty"><button type="button" data-step="-1" aria-label="Decrease">−</button><input id="qty" type="number" value="1" min="1" max="${p.maxQty}" aria-label="Quantity" /><button type="button" data-step="1" aria-label="Increase">+</button></div>` : ""}
+              <button class="btn" id="addBtn" ${out ? "disabled" : ""}>Add to Bag</button>
+              <button class="btn btn-dark" id="buyNow" ${out ? "disabled" : ""}>Buy Now</button>
+            </div>
+            <div class="sold-by">
+              <span class="vlogo" style="--c1:${esc(v.c1)};--c2:${esc(v.c2)}">${esc(v.logo)}</span>
+              <div><small class="muted">Sold & shipped by</small><br /><b>${esc(v.name)}</b> ${verifiedBadge(v)}<br /><small class="muted">📍 ${esc(v.city)}, ${esc(v.state)} · ${stars(v.rating)}</small></div>
+              <a href="brand.html?id=${esc(v.slug)}" class="btn btn-ghost btn-sm">Visit store</a>
+            </div>
+            <div class="assure">
+              <span>🚚 Ships in 2–5 days · Free over ${money(C.freeShipMin)}</span>
+              <span>↩ 7-day easy returns</span>
+              <span>🔒 Secure payments</span>
+            </div>
+          </div>
+        </section>
+        ${more.length ? `<section><h2 class="sec-title">More from ${esc(v.name)}</h2><div class="pgrid">${more.map(productCard).join("")}</div></section>` : ""}
+        ${related.length ? `<section><h2 class="sec-title">You may also like</h2><div class="pgrid">${related.map(productCard).join("")}</div></section>` : ""}`;
+
+      let size = null;
+      $("#sizes")?.addEventListener("click", (e) => {
+        const b = e.target.closest(".size"); if (!b) return;
+        size = b.dataset.size;
+        $$(".size").forEach((x) => x.classList.toggle("active", x === b));
+        $("#sizes").classList.remove("invalid");
+      });
+      const qtyEl = $("#qty");
+      const clampQty = () => { if (qtyEl) qtyEl.value = Math.max(1, Math.min(+qtyEl.value || 1, p.maxQty)); };
+      main.addEventListener("click", (e) => {
+        const s = e.target.closest("[data-step]");
+        if (s && qtyEl) { qtyEl.value = +qtyEl.value + +s.dataset.step; clampQty(); }
+      });
+      qtyEl?.addEventListener("change", clampQty);
+
+      const add = async () => {
+        if (p.sizes && !size) { toast("Please select a size", true); $("#sizes").classList.add("invalid"); return false; }
+        return !!(await Cart.add(p.id, qtyEl ? +qtyEl.value : 1, size, p.name));
+      };
+      $("#addBtn").addEventListener("click", add);
+      $("#buyNow").addEventListener("click", async () => {
+        const inCart = App.cart.items.some((i) => i.product.id === p.id && (i.size || null) === size);
+        if ((await add()) || (inCart && (!p.sizes || size))) location.href = "checkout.html";
+      });
+    });
+  </script>
+</body>
+</html>
